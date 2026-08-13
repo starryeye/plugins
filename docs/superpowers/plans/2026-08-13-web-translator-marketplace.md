@@ -257,10 +257,14 @@ Run each command separately:
 test_env=$(mktemp -d)
 python3 -m venv "$test_env/venv"
 "$test_env/venv/bin/python" -m pip install -e './plugins/web-translator[test]'
-"$test_env/venv/bin/python" -m pytest plugins/web-translator/tests -q
+"$test_env/venv/bin/python" -m playwright install chromium
+(
+  cd plugins/web-translator
+  "$test_env/venv/bin/python" -m pytest tests -q
+)
 ```
 
-Expected: dependency installation succeeds and pytest reports zero failures. The upstream `pyproject.toml` excludes `live` tests by default.
+Expected: dependency and Chromium installation succeed, and pytest reports zero failures. The upstream `pyproject.toml` excludes `live` tests by default.
 
 - [ ] **Step 5: Run final repository checks**
 
