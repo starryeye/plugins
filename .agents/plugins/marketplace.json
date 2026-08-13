@@ -1,0 +1,20 @@
+{
+  "name": "starryeye",
+  "interface": {
+    "displayName": "Starryeye Plugins"
+  },
+  "plugins": [
+    {
+      "name": "web-translator",
+      "source": {
+        "source": "local",
+        "path": "./plugins/web-translator"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
