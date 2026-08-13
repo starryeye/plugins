@@ -14,9 +14,33 @@ A self-contained Codex plugin marketplace maintained by [starryeye](https://gith
 
 ## Install
 
-Clone this repository, register its root as a local marketplace, and install the plugin.
+For a Git marketplace, include both the marketplace manifest and the vendored plugin
+in Codex's sparse checkout. Omitting the plugin path lets Codex discover the catalog
+entry but installation then fails because `plugins/web-translator` is absent.
+
+PowerShell and POSIX shell:
+
+```text
+codex plugin marketplace add https://github.com/starryeye/plugins.git --ref main --sparse .agents/plugins --sparse plugins/web-translator
+codex plugin add web-translator@starryeye
+```
+
+If `starryeye` was already registered without the plugin sparse path, replace that
+registration before installing:
+
+```text
+codex plugin marketplace remove starryeye
+codex plugin marketplace add https://github.com/starryeye/plugins.git --ref main --sparse .agents/plugins --sparse plugins/web-translator
+codex plugin add web-translator@starryeye
+```
+
 The translator is Windows-first; its pinned prerequisites are documented in the
 [vendored plugin setup](plugins/web-translator/README.md#windows-setup).
+
+### Local clone alternative
+
+You can instead clone this repository, register its root as a local marketplace, and
+install the plugin.
 
 PowerShell:
 

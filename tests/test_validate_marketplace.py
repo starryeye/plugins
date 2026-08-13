@@ -11,9 +11,21 @@ from pathlib import Path
 REPOSITORY_VALIDATOR = (
     Path(__file__).resolve().parents[1] / "scripts" / "validate_marketplace.py"
 )
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class MarketplaceValidatorTests(unittest.TestCase):
+    def test_readme_documents_complete_remote_sparse_checkout(self) -> None:
+        readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+        install_command = (
+            "codex plugin marketplace add https://github.com/starryeye/plugins.git "
+            "--ref main --sparse .agents/plugins "
+            "--sparse plugins/web-translator"
+        )
+
+        self.assertIn(install_command, readme)
+        self.assertIn("codex plugin add web-translator@starryeye", readme)
+
     def test_accepts_the_supported_marketplace_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
