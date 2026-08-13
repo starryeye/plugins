@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
+EXPECTED_PLUGIN_VERSION = "0.1.1"
 EXPECTED_PLUGIN = {
     "name": "web-translator",
     "source": {"source": "local", "path": "./plugins/web-translator"},
@@ -119,11 +121,11 @@ def _validate_catalog(
 
 def _validate_manifest(
     plugin_root: Path, entry: dict[str, Any], errors: list[str]
-) -> None:
+) -> str | None:
     manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
     manifest = _read_json_object(manifest_path, errors)
     if manifest is None:
-        return
+        return None
 
     entry_name = entry.get("name")
     manifest_name = manifest.get("name")
@@ -142,6 +144,12 @@ def _validate_manifest(
             "plugin manifest version must be a strict semantic version "
             f"(for example, '1.2.3' or '1.2.3-rc.1'); found {version!r}"
         )
+        return None
+    if version != EXPECTED_PLUGIN_VERSION:
+        errors.append(
+            "plugin manifest version must match the expected marketplace release "
+            f"{EXPECTED_PLUGIN_VERSION!r}; found {version!r}"
+        )
 
     skills = manifest.get("skills")
     if skills is not None:
@@ -157,6 +165,58 @@ def _validate_manifest(
                     "declared skills path does not exist: "
                     f"{skills_path} (from manifest value {skills!r})"
                 )
+    return version
+
+
+def _validate_version_artifacts(
+    root: Path, plugin_root: Path, manifest_version: str | None, errors: list[str]
+) -> None:
+    if manifest_version is None:
+        return
+    pyproject_path = plugin_root / "pyproject.toml"
+    try:
+        pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        project_version = pyproject["project"]["version"]
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, KeyError, TypeError) as error:
+        errors.append(f"{pyproject_path} does not declare project.version: {error}")
+        project_version = None
+
+    package_path = plugin_root / "src" / "web_translator" / "__init__.py"
+    try:
+        package_text = package_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        errors.append(f"cannot read package version from {package_path}: {error}")
+        package_version = None
+    else:
+        matches = re.findall(
+            r'^__version__\s*=\s*"([^"]+)"\s*$', package_text, re.MULTILINE
+        )
+        if len(matches) != 1:
+            errors.append(
+                f"{package_path} must declare exactly one __version__; found {len(matches)}"
+            )
+            package_version = None
+        else:
+            package_version = matches[0]
+
+    versions = {
+        "manifest": manifest_version,
+        "pyproject": project_version,
+        "package": package_version,
+    }
+    if any(value != manifest_version for value in versions.values()):
+        detail = ", ".join(f"{name}={value!r}" for name, value in versions.items())
+        errors.append(f"plugin version mismatch: {detail}")
+
+    readme_path = root / "README.md"
+    expected_line = "- Version: `" + manifest_version + "`"
+    try:
+        readme = readme_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        errors.append(f"cannot read marketplace README: {error}")
+    else:
+        if expected_line not in readme:
+            errors.append(f"README must display the marketplace plugin version as {expected_line!r}")
 
 
 def validate_repository(root: Path) -> list[str]:
@@ -173,7 +233,8 @@ def validate_repository(root: Path) -> list[str]:
     for nested_git_path in nested_git_paths:
         errors.append(f"nested Git metadata is not allowed: {nested_git_path}")
 
-    _validate_manifest(plugin_root, entry, errors)
+    manifest_version = _validate_manifest(plugin_root, entry, errors)
+    _validate_version_artifacts(root, plugin_root, manifest_version, errors)
     return errors
 
 

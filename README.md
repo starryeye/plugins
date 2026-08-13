@@ -9,7 +9,8 @@ A self-contained Codex plugin marketplace maintained by [starryeye](https://gith
 `web-translator` translates one public static web page into a reviewed offline Korean HTML bundle while preserving its structure and assets.
 
 - Upstream: <https://github.com/starryeye/web-translator>
-- Vendored commit: [`09460540cb3a509b897f8e4d6e86d8439011d0d0`](https://github.com/starryeye/web-translator/commit/09460540cb3a509b897f8e4d6e86d8439011d0d0)
+- Version: `0.1.1`
+- Vendored commit: [`80c08e2e408594fa308ff6525de860ea7f6ac5af`](https://github.com/starryeye/web-translator/commit/80c08e2e408594fa308ff6525de860ea7f6ac5af)
 - Runtime: Windows-first, Python 3.11 or newer
 
 ## Install
@@ -82,7 +83,7 @@ POSIX.
 
 ## Update the vendored plugin
 
-Fetch the desired upstream commit into a temporary checkout, replace `plugins/web-translator` while excluding `.git`, and update the vendored commit link above. Then run:
+Fetch the desired upstream commit into a temporary checkout, replace `plugins/web-translator` while excluding `.git`, and update the version and vendored commit link above. Keep `EXPECTED_PLUGIN_VERSION` in `scripts/validate_marketplace.py` synchronized with the release. The Codex marketplace UI reads the displayed version from the vendored plugin manifest. Then run:
 
 ### POSIX maintainer environment
 
@@ -93,6 +94,7 @@ python3.11 -m venv .venv-maintainer
 ./.venv-maintainer/bin/python -m playwright install chromium
 ./.venv-maintainer/bin/python -m unittest tests/test_validate_marketplace.py -v
 ./.venv-maintainer/bin/python scripts/validate_marketplace.py
+./.venv-maintainer/bin/python plugins/web-translator/scripts/version.py --root plugins/web-translator check
 ./.venv-maintainer/bin/python "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/web-translator
 (
   cd plugins/web-translator
@@ -111,6 +113,7 @@ $MaintainerPython = (Resolve-Path ".\.venv-maintainer\Scripts\python.exe").Path
 & $MaintainerPython -m playwright install chromium
 & $MaintainerPython -m unittest .\tests\test_validate_marketplace.py -v
 & $MaintainerPython .\scripts\validate_marketplace.py
+& $MaintainerPython .\plugins\web-translator\scripts\version.py --root .\plugins\web-translator check
 $CodexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $PluginValidator = Join-Path $CodexRoot "skills\.system\plugin-creator\scripts\validate_plugin.py"
 & $MaintainerPython $PluginValidator .\plugins\web-translator

@@ -36,6 +36,49 @@ class MarketplaceValidatorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Marketplace validation passed", result.stdout)
 
+    def test_rejects_version_drift_across_marketplace_artifacts(self) -> None:
+        cases = {
+            "manifest": (
+                lambda root: self._replace(
+                    self._manifest_path(root), '"version": "0.1.1"', '"version": "0.1.2"'
+                ),
+                "expected marketplace release",
+            ),
+            "pyproject": (
+                lambda root: self._replace(
+                    self._plugin_root(root) / "pyproject.toml",
+                    'version = "0.1.1"',
+                    'version = "0.1.2"',
+                ),
+                "version mismatch",
+            ),
+            "package": (
+                lambda root: self._replace(
+                    self._plugin_root(root) / "src/web_translator/__init__.py",
+                    '__version__ = "0.1.1"',
+                    '__version__ = "0.1.2"',
+                ),
+                "version mismatch",
+            ),
+            "readme": (
+                lambda root: self._replace(
+                    root / "README.md", "- Version: `0.1.1`", "- Version: `0.1.2`"
+                ),
+                "README must display",
+            ),
+        }
+
+        for label, (mutate, expected_message) in cases.items():
+            with self.subTest(label), tempfile.TemporaryDirectory() as temporary_directory:
+                root = Path(temporary_directory)
+                self._write_valid_repository(root)
+                mutate(root)
+
+                result = self._run_validator(root)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected_message, result.stderr)
+
     def test_rejects_wrong_marketplace_identity(self) -> None:
         cases = {
             "name": ("name", "someone-else", "marketplace name"),
@@ -137,7 +180,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("strict semantic version", result.stderr)
 
-    def test_accepts_a_strict_semver_prerelease_version(self) -> None:
+    def test_rejects_a_valid_semver_that_is_not_the_expected_release(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             self._write_valid_repository(root)
@@ -148,7 +191,8 @@ class MarketplaceValidatorTests(unittest.TestCase):
 
             result = self._run_validator(root)
 
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("expected marketplace release", result.stderr)
 
     def test_rejects_a_missing_declared_skills_path(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -213,6 +257,11 @@ class MarketplaceValidatorTests(unittest.TestCase):
     def _read_json(self, path: Path) -> dict[str, object]:
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def _replace(self, path: Path, old: str, new: str) -> None:
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
     def _write_json(self, path: Path, value: dict[str, object]) -> None:
         path.write_text(json.dumps(value), encoding="utf-8")
 
@@ -250,13 +299,24 @@ class MarketplaceValidatorTests(unittest.TestCase):
             json.dumps(
                 {
                     "name": "web-translator",
-                    "version": "0.1.0",
+                    "version": "0.1.1",
                     "skills": "./skills/",
                 }
             ),
             encoding="utf-8",
         )
         (plugin_root / "skills").mkdir()
+        (plugin_root / "src/web_translator").mkdir(parents=True)
+        (plugin_root / "src/web_translator/__init__.py").write_text(
+            '__version__ = "0.1.1"\n', encoding="utf-8"
+        )
+        (plugin_root / "pyproject.toml").write_text(
+            '[project]\nname = "web-translator"\nversion = "0.1.1"\n',
+            encoding="utf-8",
+        )
+        (root / "README.md").write_text(
+            "# Test Marketplace\n\n- Version: `0.1.1`\n", encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":
