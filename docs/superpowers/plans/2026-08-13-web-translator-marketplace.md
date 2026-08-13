@@ -143,7 +143,7 @@ Expected: exit code 0 with no output.
 Run:
 
 ```bash
-python3 /Users/starryeye/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/web-translator
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/web-translator
 ```
 
 Expected: plugin validation succeeds with no errors.
@@ -218,7 +218,7 @@ Start a new Codex task after installation so the plugin skill is loaded. Before 
 Fetch the desired upstream commit into a temporary checkout, replace `plugins/web-translator` while excluding `.git`, and update the vendored commit link above. Then run:
 
 ```bash
-python3 /Users/starryeye/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/web-translator
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/web-translator
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 ```
 
@@ -240,7 +240,7 @@ required = (
     'codex plugin add web-translator@starryeye',
     '09460540cb3a509b897f8e4d6e86d8439011d0d0',
     'Windows-first, Python 3.11 or newer',
-    'validate_plugin.py plugins/web-translator',
+    'validate_plugin.py" plugins/web-translator',
 )
 for item in required:
     assert item in text, item
@@ -268,12 +268,12 @@ Run:
 
 ```bash
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-python3 /Users/starryeye/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/web-translator
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/web-translator
 git diff --check
 git status --short
 ```
 
-Expected: JSON parsing and plugin validation succeed, `git diff --check` reports nothing, and Git status lists only `README.md` plus this implementation plan before the documentation commit.
+Expected: JSON parsing and plugin validation succeed, `git diff --check` reports nothing, and Git status lists `README.md` plus this implementation plan only when the plan portability correction has not yet been committed.
 
 - [ ] **Step 6: Commit documentation and plan**
 
