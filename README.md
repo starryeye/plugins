@@ -9,8 +9,8 @@ A self-contained Codex plugin marketplace maintained by [starryeye](https://gith
 `web-translator` translates one public static web page into a reviewed offline Korean HTML bundle while preserving its structure and assets.
 
 - Upstream: <https://github.com/starryeye/web-translator>
-- Version: `0.1.1`
-- Vendored commit: [`80c08e2e408594fa308ff6525de860ea7f6ac5af`](https://github.com/starryeye/web-translator/commit/80c08e2e408594fa308ff6525de860ea7f6ac5af)
+- Version: `0.1.2`
+- Vendored commit: [`5f8f53d6890dfe6c239cc0662370743e79b4cef3`](https://github.com/starryeye/web-translator/commit/5f8f53d6890dfe6c239cc0662370743e79b4cef3)
 - Runtime: Windows-first, Python 3.11 or newer
 
 ## Install

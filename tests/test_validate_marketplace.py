@@ -40,29 +40,29 @@ class MarketplaceValidatorTests(unittest.TestCase):
         cases = {
             "manifest": (
                 lambda root: self._replace(
-                    self._manifest_path(root), '"version": "0.1.1"', '"version": "0.1.2"'
+                    self._manifest_path(root), '"version": "0.1.2"', '"version": "0.1.3"'
                 ),
                 "expected marketplace release",
             ),
             "pyproject": (
                 lambda root: self._replace(
                     self._plugin_root(root) / "pyproject.toml",
-                    'version = "0.1.1"',
                     'version = "0.1.2"',
+                    'version = "0.1.3"',
                 ),
                 "version mismatch",
             ),
             "package": (
                 lambda root: self._replace(
                     self._plugin_root(root) / "src/web_translator/__init__.py",
-                    '__version__ = "0.1.1"',
                     '__version__ = "0.1.2"',
+                    '__version__ = "0.1.3"',
                 ),
                 "version mismatch",
             ),
             "readme": (
                 lambda root: self._replace(
-                    root / "README.md", "- Version: `0.1.1`", "- Version: `0.1.2`"
+                    root / "README.md", "- Version: `0.1.2`", "- Version: `0.1.3`"
                 ),
                 "README must display",
             ),
@@ -299,7 +299,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
             json.dumps(
                 {
                     "name": "web-translator",
-                    "version": "0.1.1",
+                    "version": "0.1.2",
                     "skills": "./skills/",
                 }
             ),
@@ -308,14 +308,14 @@ class MarketplaceValidatorTests(unittest.TestCase):
         (plugin_root / "skills").mkdir()
         (plugin_root / "src/web_translator").mkdir(parents=True)
         (plugin_root / "src/web_translator/__init__.py").write_text(
-            '__version__ = "0.1.1"\n', encoding="utf-8"
+            '__version__ = "0.1.2"\n', encoding="utf-8"
         )
         (plugin_root / "pyproject.toml").write_text(
-            '[project]\nname = "web-translator"\nversion = "0.1.1"\n',
+            '[project]\nname = "web-translator"\nversion = "0.1.2"\n',
             encoding="utf-8",
         )
         (root / "README.md").write_text(
-            "# Test Marketplace\n\n- Version: `0.1.1`\n", encoding="utf-8"
+            "# Test Marketplace\n\n- Version: `0.1.2`\n", encoding="utf-8"
         )
 
 
