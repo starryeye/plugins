@@ -15,7 +15,7 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
-EXPECTED_PLUGIN_VERSION = "0.1.2"
+EXPECTED_PLUGIN_VERSION = "0.2.0"
 EXPECTED_PLUGIN = {
     "name": "web-translator",
     "source": {"source": "local", "path": "./plugins/web-translator"},
