@@ -112,8 +112,8 @@ Offline validation checks:
 - strict SemVer and the invariant `ref == "v" + version`;
 - a 40-character lowercase hexadecimal SHA;
 - the existing policy and category contract;
-- the absence of `plugins/web-translator`; and
-- README installation and displayed-version consistency.
+- catalog fallback metadata consistency; and
+- the absence of `plugins/web-translator`.
 
 Remote validation additionally creates an isolated temporary checkout of the
 declared ref, then checks:
@@ -139,7 +139,6 @@ layout behavior are replaced with tests for the remote contract. Tests cover:
 - rejection of wrong source type, URL, ref, SHA, version, policy, category, and
   fallback metadata;
 - rejection when `plugins/web-translator` reappears;
-- README commands that use only the marketplace sparse path;
 - remote success using a temporary local Git repository and lightweight tag;
 - remote failure for a missing tag, mismatched commit, mismatched manifest
   version, and failed upstream version check; and
@@ -149,7 +148,10 @@ Unit tests never access the public network. The final release verification runs
 `--verify-remote` against GitHub only after `v0.4.0` exists. When a compatible
 local Codex executable is available, an installation smoke test uses an isolated
 temporary `CODEX_HOME` so it does not alter the user's installed marketplaces or
-plugins.
+plugins. That smoke test executes the documented marketplace registration and
+plugin installation flow; tests do not grep or parse human-facing README prose.
+README version, commands, platform setup, and links receive direct maintainer
+review plus `git diff --check`.
 
 ## Delivery order and failure handling
 
