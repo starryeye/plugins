@@ -4,6 +4,7 @@ import contextlib
 import copy
 import io
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -136,7 +137,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
 
                 self.assertTrue(any(message in error for error in errors), errors)
 
-    def test_remote_verification_reports_a_concise_clone_error(self) -> None:
+    def test_remote_verification_reports_a_concise_tag_lookup_error(self) -> None:
         entry = copy.deepcopy(VALID_ENTRY)
         errors: list[str] = []
 
@@ -146,6 +147,97 @@ class MarketplaceValidatorTests(unittest.TestCase):
 
         self.assertTrue(any("remote tag lookup failed" in error for error in errors), errors)
         self.assertFalse(any("Traceback" in error for error in errors), errors)
+
+    def test_remote_verification_reports_clone_failure_after_tag_lookup_and_removes_checkout(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository, sha = self._remote_fixture(Path(directory))
+            entry = copy.deepcopy(VALID_ENTRY)
+            entry["source"]["sha"] = sha
+            errors: list[str] = []
+            checkout_directories: list[Path] = []
+            temporary_directory = tempfile.TemporaryDirectory
+            run_checked = validator._run_checked
+
+            class RecordingTemporaryDirectory(temporary_directory):
+                def __enter__(self) -> str:
+                    created_directory = super().__enter__()
+                    checkout_directories.append(Path(created_directory))
+                    return created_directory
+
+            def delete_tag_before_clone(
+                arguments: list[str | Path], label: str, found_errors: list[str]
+            ) -> subprocess.CompletedProcess[str] | None:
+                if label == "remote release clone":
+                    self._git(repository, "tag", "-d", "v0.4.0")
+                return run_checked(arguments, label, found_errors)
+
+            with (
+                mock.patch.object(
+                    validator, "_run_checked", side_effect=delete_tag_before_clone
+                ),
+                mock.patch.object(
+                    validator.tempfile, "TemporaryDirectory", RecordingTemporaryDirectory
+                ),
+            ):
+                validator._validate_remote_release(
+                    entry, errors, clone_url=repository.as_uri()
+                )
+
+            self.assertTrue(
+                any("remote release clone failed" in error for error in errors), errors
+            )
+            self.assertFalse(any("Traceback" in error for error in errors), errors)
+            self.assertEqual(len(checkout_directories), 1)
+            self.assertFalse(checkout_directories[0].exists())
+
+    def test_remote_verification_reports_commit_check_failure_after_clone_and_removes_checkout(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository, sha = self._remote_fixture(Path(directory))
+            entry = copy.deepcopy(VALID_ENTRY)
+            entry["source"]["sha"] = sha
+            errors: list[str] = []
+            checkout_directories: list[Path] = []
+            temporary_directory = tempfile.TemporaryDirectory
+            run_checked = validator._run_checked
+
+            class RecordingTemporaryDirectory(temporary_directory):
+                def __enter__(self) -> str:
+                    created_directory = super().__enter__()
+                    checkout_directories.append(Path(created_directory))
+                    return created_directory
+
+            def remove_checkout_before_commit_check(
+                arguments: list[str | Path], label: str, found_errors: list[str]
+            ) -> subprocess.CompletedProcess[str] | None:
+                if label == "remote release commit check":
+                    shutil.rmtree(Path(arguments[2]))
+                return run_checked(arguments, label, found_errors)
+
+            with (
+                mock.patch.object(
+                    validator,
+                    "_run_checked",
+                    side_effect=remove_checkout_before_commit_check,
+                ),
+                mock.patch.object(
+                    validator.tempfile, "TemporaryDirectory", RecordingTemporaryDirectory
+                ),
+            ):
+                validator._validate_remote_release(
+                    entry, errors, clone_url=repository.as_uri()
+                )
+
+            self.assertTrue(
+                any("remote release commit check failed" in error for error in errors),
+                errors,
+            )
+            self.assertFalse(any("Traceback" in error for error in errors), errors)
+            self.assertEqual(len(checkout_directories), 1)
+            self.assertFalse(checkout_directories[0].exists())
 
     def test_accepts_catalog_only_remote_release(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
