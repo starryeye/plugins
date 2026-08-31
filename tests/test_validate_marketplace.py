@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import contextlib
 import copy
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from scripts import validate_marketplace as validator
 
@@ -45,6 +48,41 @@ VALID_ENTRY = {
 
 
 class MarketplaceValidatorTests(unittest.TestCase):
+    def test_cli_runs_remote_verification_only_with_verify_remote_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository, sha = self._remote_fixture(root, tag=False)
+            self._write_valid_repository(root)
+            catalog = self._read_json(self._marketplace_path(root))
+            catalog["plugins"][0]["source"].update(
+                {"url": repository.as_uri(), "sha": sha}
+            )
+            self._write_json(self._marketplace_path(root), catalog)
+
+            with mock.patch.object(
+                validator, "EXPECTED_SOURCE_URL", repository.as_uri()
+            ):
+                without_flag, output = self._run_validator_main(root)
+                with_flag, remote_output = self._run_validator_main(
+                    root, "--verify-remote"
+                )
+
+            self.assertEqual(without_flag, 0, output)
+            self.assertEqual(with_flag, 1, remote_output)
+            self.assertIn("remote tag is missing", remote_output)
+
+    def test_cli_skips_remote_verification_after_offline_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._write_valid_repository(root)
+            self._marketplace_path(root).write_text("{not JSON", encoding="utf-8")
+
+            status, output = self._run_validator_main(root, "--verify-remote")
+
+            self.assertEqual(status, 1, output)
+            self.assertIn("is not readable JSON", output)
+            self.assertNotIn("remote tag lookup", output)
+
     def test_remote_verification_accepts_matching_lightweight_tag(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository, sha = self._remote_fixture(Path(directory))
@@ -232,6 +270,18 @@ class MarketplaceValidatorTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+
+    def _run_validator_main(self, root: Path, *arguments: str) -> tuple[int, str]:
+        output = io.StringIO()
+        with (
+            mock.patch.object(
+                sys, "argv", [str(REPOSITORY_VALIDATOR), *arguments, str(root)]
+            ),
+            contextlib.redirect_stdout(output),
+            contextlib.redirect_stderr(output),
+        ):
+            status = validator.main()
+        return status, output.getvalue()
 
     def _marketplace_path(self, root: Path) -> Path:
         return root / ".agents" / "plugins" / "marketplace.json"
