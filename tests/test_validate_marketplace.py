@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts import validate_marketplace as validator
+
 
 REPOSITORY_VALIDATOR = (
     Path(__file__).resolve().parents[1] / "scripts" / "validate_marketplace.py"
@@ -43,6 +45,70 @@ VALID_ENTRY = {
 
 
 class MarketplaceValidatorTests(unittest.TestCase):
+    def test_remote_verification_accepts_matching_lightweight_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository, sha = self._remote_fixture(Path(directory))
+            entry = copy.deepcopy(VALID_ENTRY)
+            entry["source"]["sha"] = sha
+            errors: list[str] = []
+
+            validator._validate_remote_release(
+                entry, errors, clone_url=repository.as_uri()
+            )
+
+            self.assertEqual(errors, [])
+
+    def test_remote_verification_rejects_missing_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository, sha = self._remote_fixture(Path(directory), tag=False)
+            entry = copy.deepcopy(VALID_ENTRY)
+            entry["source"]["sha"] = sha
+            errors: list[str] = []
+
+            validator._validate_remote_release(
+                entry, errors, clone_url=repository.as_uri()
+            )
+
+            self.assertTrue(any("tag" in error for error in errors), errors)
+
+    def test_remote_verification_rejects_sha_manifest_and_version_check_failures(
+        self,
+    ) -> None:
+        cases = (
+            ({"catalog_sha": "f" * 40}, "commit"),
+            ({"version": "0.4.1"}, "manifest version"),
+            ({"version_check_exit": 7}, "version check"),
+            ({"malformed_manifest": True}, "readable JSON"),
+        )
+        for options, message in cases:
+            with self.subTest(message), tempfile.TemporaryDirectory() as directory:
+                fixture_options = {
+                    key: value for key, value in options.items() if key != "catalog_sha"
+                }
+                repository, sha = self._remote_fixture(
+                    Path(directory), **fixture_options
+                )
+                entry = copy.deepcopy(VALID_ENTRY)
+                entry["source"]["sha"] = options.get("catalog_sha", sha)
+                errors: list[str] = []
+
+                validator._validate_remote_release(
+                    entry, errors, clone_url=repository.as_uri()
+                )
+
+                self.assertTrue(any(message in error for error in errors), errors)
+
+    def test_remote_verification_reports_a_concise_clone_error(self) -> None:
+        entry = copy.deepcopy(VALID_ENTRY)
+        errors: list[str] = []
+
+        validator._validate_remote_release(
+            entry, errors, clone_url="file:///path/that/does/not/exist"
+        )
+
+        self.assertTrue(any("remote tag lookup failed" in error for error in errors), errors)
+        self.assertFalse(any("Traceback" in error for error in errors), errors)
+
     def test_accepts_catalog_only_remote_release(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -187,3 +253,48 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 "plugins": [copy.deepcopy(VALID_ENTRY)],
             },
         )
+
+    def _git(self, repository: Path, *arguments: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(repository), *arguments],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
+    def _remote_fixture(
+        self,
+        root: Path,
+        *,
+        version: str = "0.4.0",
+        tag: bool = True,
+        version_check_exit: int = 0,
+        malformed_manifest: bool = False,
+    ) -> tuple[Path, str]:
+        repository = root / "remote"
+        repository.mkdir()
+        self._git(repository, "init")
+        self._git(repository, "config", "user.name", "Marketplace Tests")
+        self._git(repository, "config", "user.email", "marketplace-tests@example.invalid")
+        manifest = copy.deepcopy(VALID_ENTRY)
+        for field in ("source", "policy", "category"):
+            manifest.pop(field)
+        manifest["version"] = version
+        manifest["skills"] = "./skills/"
+        manifest_path = repository / ".codex-plugin" / "plugin.json"
+        manifest_path.parent.mkdir(parents=True)
+        if malformed_manifest:
+            manifest_path.write_text("{not JSON", encoding="utf-8")
+        else:
+            self._write_json(manifest_path, manifest)
+        (repository / "skills").mkdir()
+        script = repository / "scripts" / "version.py"
+        script.parent.mkdir()
+        script.write_text(f"raise SystemExit({version_check_exit})\n", encoding="utf-8")
+        self._git(repository, "add", ".")
+        self._git(repository, "commit", "-m", "release fixture")
+        sha = self._git(repository, "rev-parse", "HEAD")
+        if tag:
+            self._git(repository, "tag", "v0.4.0", sha)
+        return repository, sha

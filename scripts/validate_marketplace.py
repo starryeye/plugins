@@ -7,7 +7,9 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -145,6 +147,105 @@ def validate_repository(root: Path) -> list[str]:
     return errors
 
 
+def _run_checked(
+    arguments: list[str | os.PathLike[str]],
+    label: str,
+    errors: list[str],
+) -> subprocess.CompletedProcess[str] | None:
+    try:
+        result = subprocess.run(
+            arguments,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as error:
+        errors.append(f"{label} failed: {error}")
+        return None
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        errors.append(f"{label} failed: {detail}")
+        return None
+    return result
+
+
+def _validate_remote_release(
+    entry: dict[str, Any],
+    errors: list[str],
+    clone_url: str | None = None,
+) -> None:
+    source = entry["source"]
+    url = clone_url or source["url"]
+    ref_name = source["ref"]
+    expected_sha = source["sha"]
+    tag_ref = f"refs/tags/{ref_name}"
+
+    remote = _run_checked(
+        ["git", "ls-remote", "--tags", url, tag_ref],
+        "remote tag lookup",
+        errors,
+    )
+    if remote is None:
+        return
+    expected_line = f"{expected_sha}\t{tag_ref}"
+    if expected_line not in remote.stdout.splitlines():
+        errors.append("remote tag is missing or its commit does not match catalog commit SHA")
+        return
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="starryeye-plugin-") as directory:
+            checkout = Path(directory) / "web-translator"
+            cloned = _run_checked(
+                [
+                    "git",
+                    "clone",
+                    "--quiet",
+                    "--depth",
+                    "1",
+                    "--branch",
+                    ref_name,
+                    url,
+                    checkout,
+                ],
+                "remote release clone",
+                errors,
+            )
+            if cloned is None:
+                return
+            head = _run_checked(
+                ["git", "-C", checkout, "rev-parse", "HEAD"],
+                "remote release commit check",
+                errors,
+            )
+            if head is None:
+                return
+            if head.stdout.strip() != expected_sha:
+                errors.append("cloned release commit does not match catalog commit SHA")
+                return
+
+            manifest = _read_json_object(
+                checkout / ".codex-plugin" / "plugin.json", errors
+            )
+            if manifest is None:
+                return
+            if manifest.get("name") != "web-translator":
+                errors.append("upstream manifest name is not 'web-translator'")
+            if manifest.get("version") != entry.get("version"):
+                errors.append("upstream manifest version does not match catalog")
+            for field in EXPECTED_LISTING_METADATA:
+                if manifest.get(field) != entry.get(field):
+                    errors.append(f"upstream manifest metadata mismatch: {field}")
+
+            _run_checked(
+                [sys.executable, checkout / "scripts" / "version.py", "check"],
+                "upstream version check",
+                errors,
+            )
+    except OSError as error:
+        errors.append(f"temporary release checkout failed: {error}")
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate the starryeye marketplace remote release contract."
@@ -156,12 +257,24 @@ def _parse_args() -> argparse.Namespace:
         default=Path(__file__).resolve().parents[1],
         help="repository root (defaults to the parent of this script's directory)",
     )
+    parser.add_argument(
+        "--verify-remote",
+        action="store_true",
+        help="verify the tagged upstream release after offline validation passes",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
-    root = _parse_args().root.resolve()
+    arguments = _parse_args()
+    root = arguments.root.resolve()
     errors = validate_repository(root)
+    if not errors and arguments.verify_remote:
+        catalog = _read_json_object(root / MARKETPLACE_PATH, errors)
+        if catalog is not None:
+            entry = _validate_catalog(root, catalog, errors)
+            if entry is not None and not errors:
+                _validate_remote_release(entry, errors)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
