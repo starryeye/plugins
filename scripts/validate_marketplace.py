@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Validate this repository's Codex marketplace contract."""
+"""Validate this repository's offline Codex marketplace contract."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
-import tomllib
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -15,12 +17,37 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
-EXPECTED_PLUGIN_VERSION = "0.3.0"
-EXPECTED_PLUGIN = {
-    "name": "web-translator",
-    "source": {"source": "local", "path": "./plugins/web-translator"},
-    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
-    "category": "Productivity",
+EXPECTED_PLUGIN_VERSION = "0.4.0"
+EXPECTED_SOURCE_URL = "https://github.com/starryeye/web-translator.git"
+COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
+EXPECTED_POLICY = {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
+EXPECTED_CATEGORY = "Productivity"
+EXPECTED_LISTING_METADATA = {
+    "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
+    "author": {"name": "starryeye"},
+    "repository": "https://github.com/starryeye/web-translator",
+    "interface": {
+        "displayName": "Web Translator",
+        "shortDescription": "Translate public HTML or local/public PDFs into reviewed Korean output.",
+        "longDescription": "Provides separate workflows for a public static HTML page and a local or public text-selectable PDF while sharing contextual translation and master-review contracts.",
+        "developerName": "starryeye",
+        "category": "Productivity",
+        "capabilities": ["Write"],
+        "defaultPrompt": [
+            "Translate this public HTML page into an offline Korean bundle, or translate this local or public text-selectable PDF into a reviewed Korean PDF."
+        ],
+    },
+}
+EXPECTED_ENTRY_FIELDS = {
+    "name",
+    "source",
+    "version",
+    "description",
+    "author",
+    "repository",
+    "interface",
+    "policy",
+    "category",
 }
 SEMVER_PATTERN = re.compile(
     r"^(0|[1-9][0-9]*)\."
@@ -48,7 +75,7 @@ def _read_json_object(path: Path, errors: list[str]) -> dict[str, Any] | None:
 
 def _validate_catalog(
     root: Path, catalog: dict[str, Any], errors: list[str]
-) -> tuple[dict[str, Any] | None, Path | None]:
+) -> dict[str, Any] | None:
     if catalog.get("name") != EXPECTED_MARKETPLACE_NAME:
         errors.append(
             "marketplace name must be "
@@ -70,153 +97,44 @@ def _validate_catalog(
             "marketplace must contain exactly one plugin entry; "
             f"found {count}"
         )
-        return None, None
+        return None
 
     entry = plugins[0]
     if not isinstance(entry, dict):
         errors.append("the marketplace plugin entry must be a JSON object")
-        return None, None
-
-    if entry.get("name") != EXPECTED_PLUGIN["name"]:
-        errors.append(
-            f"plugin entry name must be {EXPECTED_PLUGIN['name']!r}; "
-            f"found {entry.get('name')!r}"
-        )
-    if entry.get("source") != EXPECTED_PLUGIN["source"]:
-        errors.append(
-            "plugin local source must be exactly "
-            f"{EXPECTED_PLUGIN['source']!r}; found {entry.get('source')!r}"
-        )
-    if entry.get("policy") != EXPECTED_PLUGIN["policy"]:
-        errors.append(
-            f"plugin policy must be exactly {EXPECTED_PLUGIN['policy']!r}; "
-            f"found {entry.get('policy')!r}"
-        )
-    if entry.get("category") != EXPECTED_PLUGIN["category"]:
-        errors.append(
-            f"plugin category must be {EXPECTED_PLUGIN['category']!r}; "
-            f"found {entry.get('category')!r}"
-        )
-    if set(entry) != set(EXPECTED_PLUGIN):
-        errors.append(
-            "plugin entry fields must be exactly "
-            f"{sorted(EXPECTED_PLUGIN)}; found {sorted(entry)}"
-        )
-
-    source = entry.get("source")
-    source_path = source.get("path") if isinstance(source, dict) else None
-    if not isinstance(source_path, str):
-        return entry, None
-
-    plugin_root = (root / source_path).resolve()
-    if not plugin_root.is_dir():
-        errors.append(
-            "referenced plugin directory does not exist: "
-            f"{plugin_root} (from source path {source_path!r})"
-        )
-        return entry, None
-
-    return entry, plugin_root
-
-
-def _validate_manifest(
-    plugin_root: Path, entry: dict[str, Any], errors: list[str]
-) -> str | None:
-    manifest_path = plugin_root / ".codex-plugin" / "plugin.json"
-    manifest = _read_json_object(manifest_path, errors)
-    if manifest is None:
         return None
 
-    entry_name = entry.get("name")
-    manifest_name = manifest.get("name")
-    if not (
-        isinstance(entry_name, str)
-        and plugin_root.name == entry_name == manifest_name
-    ):
-        errors.append(
-            "folder, marketplace entry, and manifest names must match; "
-            f"found {plugin_root.name!r}, {entry_name!r}, and {manifest_name!r}"
-        )
-
-    version = manifest.get("version")
+    if set(entry) != EXPECTED_ENTRY_FIELDS:
+        errors.append("plugin entry fields do not match the remote release contract")
+    if entry.get("name") != "web-translator":
+        errors.append("plugin entry name must be 'web-translator'")
+    version = entry.get("version")
     if not isinstance(version, str) or SEMVER_PATTERN.fullmatch(version) is None:
-        errors.append(
-            "plugin manifest version must be a strict semantic version "
-            f"(for example, '1.2.3' or '1.2.3-rc.1'); found {version!r}"
-        )
-        return None
-    if version != EXPECTED_PLUGIN_VERSION:
-        errors.append(
-            "plugin manifest version must match the expected marketplace release "
-            f"{EXPECTED_PLUGIN_VERSION!r}; found {version!r}"
-        )
-
-    skills = manifest.get("skills")
-    if skills is not None:
-        if not isinstance(skills, str) or not skills.strip():
-            errors.append(
-                "plugin manifest skills path must be a non-empty string; "
-                f"found {skills!r}"
-            )
-        else:
-            skills_path = plugin_root / skills
-            if not skills_path.exists():
-                errors.append(
-                    "declared skills path does not exist: "
-                    f"{skills_path} (from manifest value {skills!r})"
-                )
-    return version
-
-
-def _validate_version_artifacts(
-    root: Path, plugin_root: Path, manifest_version: str | None, errors: list[str]
-) -> None:
-    if manifest_version is None:
-        return
-    pyproject_path = plugin_root / "pyproject.toml"
-    try:
-        pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-        project_version = pyproject["project"]["version"]
-    except (OSError, UnicodeError, tomllib.TOMLDecodeError, KeyError, TypeError) as error:
-        errors.append(f"{pyproject_path} does not declare project.version: {error}")
-        project_version = None
-
-    package_path = plugin_root / "src" / "web_translator" / "__init__.py"
-    try:
-        package_text = package_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
-        errors.append(f"cannot read package version from {package_path}: {error}")
-        package_version = None
+        errors.append("plugin release version must be a strict semantic version")
+    elif version != EXPECTED_PLUGIN_VERSION:
+        errors.append(f"plugin release version must be {EXPECTED_PLUGIN_VERSION!r}")
+    source = entry.get("source")
+    if not isinstance(source, dict) or source.get("source") != "url":
+        errors.append("plugin source type must be 'url'")
+    elif set(source) != {"source", "url", "ref", "sha"}:
+        errors.append("plugin source fields must be source, url, ref, and sha")
     else:
-        matches = re.findall(
-            r'^__version__\s*=\s*"([^"]+)"\s*$', package_text, re.MULTILINE
-        )
-        if len(matches) != 1:
-            errors.append(
-                f"{package_path} must declare exactly one __version__; found {len(matches)}"
-            )
-            package_version = None
-        else:
-            package_version = matches[0]
-
-    versions = {
-        "manifest": manifest_version,
-        "pyproject": project_version,
-        "package": package_version,
-    }
-    if any(value != manifest_version for value in versions.values()):
-        detail = ", ".join(f"{name}={value!r}" for name, value in versions.items())
-        errors.append(f"plugin version mismatch: {detail}")
-
-    readme_path = root / "README.md"
-    expected_line = "- Version: `" + manifest_version + "`"
-    try:
-        readme = readme_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
-        errors.append(f"cannot read marketplace README: {error}")
-    else:
-        if expected_line not in readme:
-            errors.append(f"README must display the marketplace plugin version as {expected_line!r}")
+        if source.get("url") != EXPECTED_SOURCE_URL:
+            errors.append("plugin source URL is not the approved upstream")
+        if source.get("ref") != f"v{EXPECTED_PLUGIN_VERSION}":
+            errors.append("plugin release ref must match the catalog version")
+        if not isinstance(source.get("sha"), str) or COMMIT_SHA.fullmatch(source["sha"]) is None:
+            errors.append("plugin commit SHA must be 40 lowercase hexadecimal characters")
+    for field, expected in EXPECTED_LISTING_METADATA.items():
+        if entry.get(field) != expected:
+            errors.append(f"plugin listing metadata mismatch: {field}")
+    if entry.get("policy") != EXPECTED_POLICY:
+        errors.append("plugin policy does not match the marketplace contract")
+    if entry.get("category") != EXPECTED_CATEGORY:
+        errors.append("plugin category does not match the marketplace contract")
+    if os.path.lexists(root / "plugins" / "web-translator"):
+        errors.append("vendored plugin directory must not exist")
+    return entry
 
 
 def validate_repository(root: Path) -> list[str]:
@@ -225,22 +143,112 @@ def validate_repository(root: Path) -> list[str]:
     if catalog is None:
         return errors
 
-    entry, plugin_root = _validate_catalog(root, catalog, errors)
-    if plugin_root is None or entry is None:
-        return errors
-
-    nested_git_paths = sorted(plugin_root.rglob(".git"))
-    for nested_git_path in nested_git_paths:
-        errors.append(f"nested Git metadata is not allowed: {nested_git_path}")
-
-    manifest_version = _validate_manifest(plugin_root, entry, errors)
-    _validate_version_artifacts(root, plugin_root, manifest_version, errors)
+    _validate_catalog(root, catalog, errors)
     return errors
+
+
+def _run_checked(
+    arguments: list[str | os.PathLike[str]],
+    label: str,
+    errors: list[str],
+) -> subprocess.CompletedProcess[str] | None:
+    try:
+        result = subprocess.run(
+            arguments,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as error:
+        errors.append(f"{label} failed: {error}")
+        return None
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        errors.append(f"{label} failed: {detail}")
+        return None
+    return result
+
+
+def _validate_remote_release(
+    entry: dict[str, Any],
+    errors: list[str],
+    clone_url: str | None = None,
+) -> None:
+    source = entry["source"]
+    url = clone_url or source["url"]
+    ref_name = source["ref"]
+    expected_sha = source["sha"]
+    tag_ref = f"refs/tags/{ref_name}"
+
+    remote = _run_checked(
+        ["git", "ls-remote", "--tags", url, tag_ref],
+        "remote tag lookup",
+        errors,
+    )
+    if remote is None:
+        return
+    expected_line = f"{expected_sha}\t{tag_ref}"
+    if expected_line not in remote.stdout.splitlines():
+        errors.append("remote tag is missing or its commit does not match catalog commit SHA")
+        return
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="starryeye-plugin-") as directory:
+            checkout = Path(directory) / "web-translator"
+            cloned = _run_checked(
+                [
+                    "git",
+                    "clone",
+                    "--quiet",
+                    "--depth",
+                    "1",
+                    "--branch",
+                    ref_name,
+                    url,
+                    checkout,
+                ],
+                "remote release clone",
+                errors,
+            )
+            if cloned is None:
+                return
+            head = _run_checked(
+                ["git", "-C", checkout, "rev-parse", "HEAD"],
+                "remote release commit check",
+                errors,
+            )
+            if head is None:
+                return
+            if head.stdout.strip() != expected_sha:
+                errors.append("cloned release commit does not match catalog commit SHA")
+                return
+
+            manifest = _read_json_object(
+                checkout / ".codex-plugin" / "plugin.json", errors
+            )
+            if manifest is None:
+                return
+            if manifest.get("name") != "web-translator":
+                errors.append("upstream manifest name is not 'web-translator'")
+            if manifest.get("version") != entry.get("version"):
+                errors.append("upstream manifest version does not match catalog")
+            for field in EXPECTED_LISTING_METADATA:
+                if manifest.get(field) != entry.get(field):
+                    errors.append(f"upstream manifest metadata mismatch: {field}")
+
+            _run_checked(
+                [sys.executable, checkout / "scripts" / "version.py", "check"],
+                "upstream version check",
+                errors,
+            )
+    except OSError as error:
+        errors.append(f"temporary release checkout failed: {error}")
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate the starryeye marketplace and vendored plugin layout."
+        description="Validate the starryeye marketplace remote release contract."
     )
     parser.add_argument(
         "root",
@@ -249,12 +257,24 @@ def _parse_args() -> argparse.Namespace:
         default=Path(__file__).resolve().parents[1],
         help="repository root (defaults to the parent of this script's directory)",
     )
+    parser.add_argument(
+        "--verify-remote",
+        action="store_true",
+        help="verify the tagged upstream release after offline validation passes",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
-    root = _parse_args().root.resolve()
+    arguments = _parse_args()
+    root = arguments.root.resolve()
     errors = validate_repository(root)
+    if not errors and arguments.verify_remote:
+        catalog = _read_json_object(root / MARKETPLACE_PATH, errors)
+        if catalog is not None:
+            entry = _validate_catalog(root, catalog, errors)
+            if entry is not None and not errors:
+                _validate_remote_release(entry, errors)
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
