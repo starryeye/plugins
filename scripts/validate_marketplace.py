@@ -17,7 +17,7 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
-EXPECTED_PLUGIN_VERSION = "0.4.0"
+EXPECTED_PLUGIN_VERSION = "0.5.0"
 EXPECTED_SOURCE_URL = "https://github.com/starryeye/web-translator.git"
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
 EXPECTED_POLICY = {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}

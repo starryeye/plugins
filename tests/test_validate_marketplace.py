@@ -25,10 +25,10 @@ VALID_ENTRY = {
     "source": {
         "source": "url",
         "url": "https://github.com/starryeye/web-translator.git",
-        "ref": "v0.4.0",
+        "ref": "v0.5.0",
         "sha": VALID_SHA,
     },
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
     "author": {"name": "starryeye"},
     "repository": "https://github.com/starryeye/web-translator",
@@ -170,7 +170,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 arguments: list[str | Path], label: str, found_errors: list[str]
             ) -> subprocess.CompletedProcess[str] | None:
                 if label == "remote release clone":
-                    self._git(repository, "tag", "-d", "v0.4.0")
+                    self._git(repository, "tag", "-d", "v0.5.0")
                 return run_checked(arguments, label, found_errors)
 
             with (
@@ -409,7 +409,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
         self,
         root: Path,
         *,
-        version: str = "0.4.0",
+        version: str = "0.5.0",
         tag: bool = True,
         version_check_exit: int = 0,
         malformed_manifest: bool = False,
@@ -438,5 +438,5 @@ class MarketplaceValidatorTests(unittest.TestCase):
         self._git(repository, "commit", "-m", "release fixture")
         sha = self._git(repository, "rev-parse", "HEAD")
         if tag:
-            self._git(repository, "tag", "v0.4.0", sha)
+            self._git(repository, "tag", "v0.5.0", sha)
         return repository, sha
