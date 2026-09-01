@@ -9,10 +9,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/starryeye/web-translator.git",
-        "ref": "v0.5.0",
-        "sha": "4c11169bed86dd306435e131ad936eef1ea2a369"
+        "ref": "v0.5.1",
+        "sha": "bd19aba6314391082c92677a99473abbe9e21c7f"
       },
-      "version": "0.5.0",
+      "version": "0.5.1",
       "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
       "author": {
         "name": "starryeye"
