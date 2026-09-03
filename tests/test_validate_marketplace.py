@@ -25,10 +25,10 @@ VALID_ENTRY = {
     "source": {
         "source": "url",
         "url": "https://github.com/starryeye/web-translator.git",
-        "ref": "v0.5.1",
+        "ref": "v0.5.2",
         "sha": VALID_SHA,
     },
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
     "author": {"name": "starryeye"},
     "repository": "https://github.com/starryeye/web-translator",
@@ -87,6 +87,21 @@ class MarketplaceValidatorTests(unittest.TestCase):
     def test_remote_verification_accepts_matching_lightweight_tag(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository, sha = self._remote_fixture(Path(directory))
+            entry = copy.deepcopy(VALID_ENTRY)
+            entry["source"]["sha"] = sha
+            errors: list[str] = []
+
+            validator._validate_remote_release(
+                entry, errors, clone_url=repository.as_uri()
+            )
+
+            self.assertEqual(errors, [])
+
+    def test_remote_verification_accepts_matching_annotated_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository, sha = self._remote_fixture(
+                Path(directory), annotated_tag=True
+            )
             entry = copy.deepcopy(VALID_ENTRY)
             entry["source"]["sha"] = sha
             errors: list[str] = []
@@ -170,7 +185,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 arguments: list[str | Path], label: str, found_errors: list[str]
             ) -> subprocess.CompletedProcess[str] | None:
                 if label == "remote release clone":
-                    self._git(repository, "tag", "-d", "v0.5.1")
+                    self._git(repository, "tag", "-d", "v0.5.2")
                 return run_checked(arguments, label, found_errors)
 
             with (
@@ -409,8 +424,9 @@ class MarketplaceValidatorTests(unittest.TestCase):
         self,
         root: Path,
         *,
-        version: str = "0.5.1",
+        version: str = "0.5.2",
         tag: bool = True,
+        annotated_tag: bool = False,
         version_check_exit: int = 0,
         malformed_manifest: bool = False,
     ) -> tuple[Path, str]:
@@ -438,5 +454,9 @@ class MarketplaceValidatorTests(unittest.TestCase):
         self._git(repository, "commit", "-m", "release fixture")
         sha = self._git(repository, "rev-parse", "HEAD")
         if tag:
-            self._git(repository, "tag", "v0.5.1", sha)
+            arguments = ["tag"]
+            if annotated_tag:
+                arguments.extend(["-a", "-m", "release fixture"])
+            arguments.extend(["v0.5.2", sha])
+            self._git(repository, *arguments)
         return repository, sha

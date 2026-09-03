@@ -17,7 +17,7 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
-EXPECTED_PLUGIN_VERSION = "0.5.1"
+EXPECTED_PLUGIN_VERSION = "0.5.2"
 EXPECTED_SOURCE_URL = "https://github.com/starryeye/web-translator.git"
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
 EXPECTED_POLICY = {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
@@ -180,16 +180,20 @@ def _validate_remote_release(
     ref_name = source["ref"]
     expected_sha = source["sha"]
     tag_ref = f"refs/tags/{ref_name}"
+    peeled_tag_ref = f"{tag_ref}^{{}}"
 
     remote = _run_checked(
-        ["git", "ls-remote", "--tags", url, tag_ref],
+        ["git", "ls-remote", "--tags", url, tag_ref, peeled_tag_ref],
         "remote tag lookup",
         errors,
     )
     if remote is None:
         return
-    expected_line = f"{expected_sha}\t{tag_ref}"
-    if expected_line not in remote.stdout.splitlines():
+    expected_lines = {
+        f"{expected_sha}\t{tag_ref}",
+        f"{expected_sha}\t{peeled_tag_ref}",
+    }
+    if expected_lines.isdisjoint(remote.stdout.splitlines()):
         errors.append("remote tag is missing or its commit does not match catalog commit SHA")
         return
 

@@ -13,7 +13,7 @@ supported public static HTML page and one local, attached, or public text-select
 PDF. It supports Windows and macOS with Python 3.11 or newer.
 
 - Upstream: <https://github.com/starryeye/web-translator>
-- Release: [`v0.5.1`](https://github.com/starryeye/web-translator/releases/tag/v0.5.1)
+- Release: [`v0.5.2`](https://github.com/starryeye/web-translator/releases/tag/v0.5.2)
 
 ## Install the marketplace and plugin
 
@@ -31,7 +31,7 @@ Poppler. Complete runtime setup in every workspace where translation tasks run.
 
 ```powershell
 py -3.11 -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install "web-translator[test] @ git+https://github.com/starryeye/web-translator.git@v0.5.1"
+& .\.venv\Scripts\python.exe -m pip install "web-translator[test] @ git+https://github.com/starryeye/web-translator.git@v0.5.2"
 & .\.venv\Scripts\python.exe -m playwright install chromium
 winget install -e --id oschwartz10612.Poppler
 ```
@@ -42,7 +42,7 @@ Open a new PowerShell after Poppler installation.
 
 ```bash
 python3.11 -m venv .venv
-./.venv/bin/python -m pip install "web-translator[test] @ git+https://github.com/starryeye/web-translator.git@v0.5.1"
+./.venv/bin/python -m pip install "web-translator[test] @ git+https://github.com/starryeye/web-translator.git@v0.5.2"
 ./.venv/bin/python -m playwright install chromium
 brew install poppler
 ```
