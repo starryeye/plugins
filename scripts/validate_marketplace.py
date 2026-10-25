@@ -17,17 +17,17 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
-EXPECTED_PLUGIN_VERSION = "0.7.0"
-EXPECTED_SOURCE_URL = "https://github.com/starryeye/web-translator.git"
+EXPECTED_PLUGIN_VERSION = "0.8.0"
+EXPECTED_SOURCE_URL = "https://github.com/starryeye/supertranslator.git"
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
 EXPECTED_POLICY = {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
 EXPECTED_CATEGORY = "Productivity"
 EXPECTED_LISTING_METADATA = {
     "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
     "author": {"name": "starryeye"},
-    "repository": "https://github.com/starryeye/web-translator",
+    "repository": "https://github.com/starryeye/supertranslator",
     "interface": {
-        "displayName": "Web Translator",
+        "displayName": "supertranslator",
         "shortDescription": "Translate public HTML or local/public PDFs into reviewed Korean output.",
         "longDescription": "Provides separate workflows for a public static HTML page and a local or public text-selectable PDF while sharing contextual translation and master-review contracts.",
         "developerName": "starryeye",
@@ -106,8 +106,8 @@ def _validate_catalog(
 
     if set(entry) != EXPECTED_ENTRY_FIELDS:
         errors.append("plugin entry fields do not match the remote release contract")
-    if entry.get("name") != "web-translator":
-        errors.append("plugin entry name must be 'web-translator'")
+    if entry.get("name") != "supertranslator":
+        errors.append("plugin entry name must be 'supertranslator'")
     version = entry.get("version")
     if not isinstance(version, str) or SEMVER_PATTERN.fullmatch(version) is None:
         errors.append("plugin release version must be a strict semantic version")
@@ -132,8 +132,9 @@ def _validate_catalog(
         errors.append("plugin policy does not match the marketplace contract")
     if entry.get("category") != EXPECTED_CATEGORY:
         errors.append("plugin category does not match the marketplace contract")
-    if os.path.lexists(root / "plugins" / "web-translator"):
-        errors.append("vendored plugin directory must not exist")
+    for name in ("web-translator", "supertranslator"):
+        if os.path.lexists(root / "plugins" / name):
+            errors.append("vendored plugin directory must not exist")
     return entry
 
 
@@ -199,7 +200,7 @@ def _validate_remote_release(
 
     try:
         with tempfile.TemporaryDirectory(prefix="starryeye-plugin-") as directory:
-            checkout = Path(directory) / "web-translator"
+            checkout = Path(directory) / "supertranslator"
             cloned = _run_checked(
                 [
                     "git",
@@ -233,8 +234,8 @@ def _validate_remote_release(
             )
             if manifest is None:
                 return
-            if manifest.get("name") != "web-translator":
-                errors.append("upstream manifest name is not 'web-translator'")
+            if manifest.get("name") != "supertranslator":
+                errors.append("upstream manifest name is not 'supertranslator'")
             if manifest.get("version") != entry.get("version"):
                 errors.append("upstream manifest version does not match catalog")
             for field in EXPECTED_LISTING_METADATA:

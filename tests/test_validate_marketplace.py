@@ -21,19 +21,19 @@ REPOSITORY_VALIDATOR = (
 
 VALID_SHA = "0123456789abcdef0123456789abcdef01234567"
 VALID_ENTRY = {
-    "name": "web-translator",
+    "name": "supertranslator",
     "source": {
         "source": "url",
-        "url": "https://github.com/starryeye/web-translator.git",
-        "ref": "v0.7.0",
+        "url": "https://github.com/starryeye/supertranslator.git",
+        "ref": "v0.8.0",
         "sha": VALID_SHA,
     },
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
     "author": {"name": "starryeye"},
-    "repository": "https://github.com/starryeye/web-translator",
+    "repository": "https://github.com/starryeye/supertranslator",
     "interface": {
-        "displayName": "Web Translator",
+        "displayName": "supertranslator",
         "shortDescription": "Translate public HTML or local/public PDFs into reviewed Korean output.",
         "longDescription": "Provides separate workflows for a public static HTML page and a local or public text-selectable PDF while sharing contextual translation and master-review contracts.",
         "developerName": "starryeye",
@@ -133,6 +133,26 @@ class MarketplaceValidatorTests(unittest.TestCase):
             ({"version": "0.4.1"}, "manifest version"),
             ({"version_check_exit": 7}, "version check"),
             ({"malformed_manifest": True}, "readable JSON"),
+            ({"manifest_overrides": {"name": "web-translator"}}, "manifest name"),
+            (
+                {
+                    "manifest_overrides": {
+                        "repository": "https://github.com/starryeye/web-translator"
+                    }
+                },
+                "manifest metadata mismatch: repository",
+            ),
+            (
+                {
+                    "manifest_overrides": {
+                        "interface": {
+                            **VALID_ENTRY["interface"],
+                            "displayName": "Web Translator",
+                        }
+                    }
+                },
+                "manifest metadata mismatch: interface",
+            ),
         )
         for options, message in cases:
             with self.subTest(message), tempfile.TemporaryDirectory() as directory:
@@ -185,7 +205,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 arguments: list[str | Path], label: str, found_errors: list[str]
             ) -> subprocess.CompletedProcess[str] | None:
                 if label == "remote release clone":
-                    self._git(repository, "tag", "-d", "v0.7.0")
+                    self._git(repository, "tag", "-d", "v0.8.0")
                 return run_checked(arguments, label, found_errors)
 
             with (
@@ -313,13 +333,63 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 self.assertIn("strict semantic version", result.stderr)
 
     def test_rejects_reintroduced_vendored_plugin(self) -> None:
+        for name in ("web-translator", "supertranslator"):
+            with self.subTest(name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self._write_valid_repository(root)
+                (root / "plugins" / name).mkdir(parents=True)
+                result = self._run_validator(root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("vendored plugin directory", result.stderr)
+
+    def test_rejects_dangling_vendored_plugin_links(self) -> None:
+        for name in ("web-translator", "supertranslator"):
+            with self.subTest(name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self._write_valid_repository(root)
+                (root / "plugins").mkdir()
+                (root / "plugins" / name).symlink_to(root / "missing")
+                result = self._run_validator(root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("vendored plugin directory", result.stderr)
+
+    def test_rejects_legacy_identity_version_and_alias_listing(self) -> None:
+        cases = (
+            (lambda entry: entry.__setitem__("name", "web-translator"), "entry name"),
+            (lambda entry: entry.__setitem__("version", "0.7.0"), "release version"),
+            (
+                lambda entry: entry["source"].__setitem__("ref", "v0.7.0"),
+                "release ref",
+            ),
+            (
+                lambda entry: entry["source"].__setitem__(
+                    "url", "https://github.com/starryeye/web-translator.git"
+                ),
+                "source URL",
+            ),
+        )
+        for mutate, message in cases:
+            with self.subTest(message), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self._write_valid_repository(root)
+                catalog = self._read_json(self._marketplace_path(root))
+                mutate(catalog["plugins"][0])
+                self._write_json(self._marketplace_path(root), catalog)
+                result = self._run_validator(root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._write_valid_repository(root)
-            (root / "plugins" / "web-translator").mkdir(parents=True)
+            catalog = self._read_json(self._marketplace_path(root))
+            legacy_entry = copy.deepcopy(VALID_ENTRY)
+            legacy_entry["name"] = "web-translator"
+            catalog["plugins"].append(legacy_entry)
+            self._write_json(self._marketplace_path(root), catalog)
             result = self._run_validator(root)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("vendored plugin directory", result.stderr)
+            self.assertIn("exactly one plugin", result.stderr)
 
     def test_rejects_wrong_marketplace_identity(self) -> None:
         cases = {
@@ -347,7 +417,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
     def test_rejects_invalid_plugin_collection_and_entry_types(self) -> None:
         cases = {
             "plugins is not a list": ({"plugins": {}}, "exactly one plugin"),
-            "plugin entry is not an object": ({"plugins": ["web-translator"]}, "JSON object"),
+            "plugin entry is not an object": ({"plugins": ["supertranslator"]}, "JSON object"),
         }
         for label, (replacement, message) in cases.items():
             with self.subTest(label), tempfile.TemporaryDirectory() as directory:
@@ -424,11 +494,12 @@ class MarketplaceValidatorTests(unittest.TestCase):
         self,
         root: Path,
         *,
-        version: str = "0.7.0",
+        version: str = "0.8.0",
         tag: bool = True,
         annotated_tag: bool = False,
         version_check_exit: int = 0,
         malformed_manifest: bool = False,
+        manifest_overrides: dict[str, object] | None = None,
     ) -> tuple[Path, str]:
         repository = root / "remote"
         repository.mkdir()
@@ -440,6 +511,8 @@ class MarketplaceValidatorTests(unittest.TestCase):
             manifest.pop(field)
         manifest["version"] = version
         manifest["skills"] = "./skills/"
+        if manifest_overrides is not None:
+            manifest.update(manifest_overrides)
         manifest_path = repository / ".codex-plugin" / "plugin.json"
         manifest_path.parent.mkdir(parents=True)
         if malformed_manifest:
@@ -457,6 +530,6 @@ class MarketplaceValidatorTests(unittest.TestCase):
             arguments = ["tag"]
             if annotated_tag:
                 arguments.extend(["-a", "-m", "release fixture"])
-            arguments.extend(["v0.7.0", sha])
+            arguments.extend(["v0.8.0", sha])
             self._git(repository, *arguments)
         return repository, sha
