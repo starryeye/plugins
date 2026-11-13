@@ -25,22 +25,22 @@ VALID_ENTRY = {
     "source": {
         "source": "url",
         "url": "https://github.com/starryeye/supertranslator.git",
-        "ref": "v0.10.3",
+        "ref": "v0.11.0",
         "sha": VALID_SHA,
     },
-    "version": "0.10.3",
-    "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
+    "version": "0.11.0",
+    "description": "Translate public static HTML into a Korean reading edition or local/public text-selectable PDFs into reviewed Korean PDFs, rerender approved translations, or independently compare originals and translations.",
     "author": {"name": "starryeye"},
     "repository": "https://github.com/starryeye/supertranslator",
     "interface": {
         "displayName": "supertranslator",
-        "shortDescription": "Translate public HTML or local/public PDFs into reviewed Korean output.",
-        "longDescription": "Provides separate workflows for a public static HTML page and a local or public text-selectable PDF while sharing contextual translation and master-review contracts.",
+        "shortDescription": "Translate, rerender, or independently review HTML/PDF.",
+        "longDescription": "Web translation delivers a visually checked Korean reading edition by default and retains a source-layout bundle. PDF translation, layout-only rendering of approved translations, and independent original-to-final review remain separate workflows.",
         "developerName": "starryeye",
         "category": "Productivity",
         "capabilities": ["Write"],
         "defaultPrompt": [
-            "Translate this public HTML page into an offline Korean bundle, or translate this local or public text-selectable PDF into a reviewed Korean PDF."
+            "Translate this public HTML page into a checked Korean reading edition, translate a text-selectable PDF, rerender an approved translation, or independently compare an original and translation."
         ],
     },
     "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
@@ -205,7 +205,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
                 arguments: list[str | Path], label: str, found_errors: list[str]
             ) -> subprocess.CompletedProcess[str] | None:
                 if label == "remote release clone":
-                    self._git(repository, "tag", "-d", "v0.10.3")
+                    self._git(repository, "tag", "-d", "v0.11.0")
                 return run_checked(arguments, label, found_errors)
 
             with (
@@ -494,7 +494,7 @@ class MarketplaceValidatorTests(unittest.TestCase):
         self,
         root: Path,
         *,
-        version: str = "0.10.3",
+        version: str = "0.11.0",
         tag: bool = True,
         annotated_tag: bool = False,
         version_check_exit: int = 0,
@@ -530,6 +530,6 @@ class MarketplaceValidatorTests(unittest.TestCase):
             arguments = ["tag"]
             if annotated_tag:
                 arguments.extend(["-a", "-m", "release fixture"])
-            arguments.extend(["v0.10.3", sha])
+            arguments.extend(["v0.11.0", sha])
             self._git(repository, *arguments)
         return repository, sha

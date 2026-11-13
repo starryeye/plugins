@@ -13,8 +13,10 @@ supported public static HTML page and one local, attached, or public text-select
 PDF. It supports Windows and macOS with Python 3.11 or newer.
 
 - Upstream: <https://github.com/starryeye/supertranslator>
-- Release: [`v0.10.3`](https://github.com/starryeye/supertranslator/releases/tag/v0.10.3)
-- Skills: `supertranslator-web` for HTML and `supertranslator-pdf` for PDF.
+- Release: [`v0.11.0`](https://github.com/starryeye/supertranslator/releases/tag/v0.11.0)
+- Skills: `supertranslator-web` delivers a visually checked Korean reading edition by
+  default; `supertranslator-pdf` translates PDFs. `supertranslator-render` and
+  `supertranslator-review` are available separately.
 
 ## Install the marketplace and plugin
 
@@ -42,8 +44,8 @@ new absolute path instead of reusing old editable-install paths or shebangs.
 These steps are explicit user actions; do not edit installed plugin caches or
 automatically reinstall plugins in unrelated workspaces.
 
-Use a new workspace/run for 0.8.0. Start a new Codex task after reinstalling so it
-loads only `supertranslator-web` and `supertranslator-pdf`. New runs use
+Use a new workspace/run for the renamed plugin. Start a new Codex task after
+reinstalling to load the current skills. New runs use
 `.supertranslator/runs`; historical `.web-translator/runs` data is preserved but
 is not discovered or supported for resume by 0.8.0. Do not move its internal files
 into the new run root or rewrite embedded paths or digests. Finished HTML and PDF
@@ -55,7 +57,7 @@ artifacts remain readable.
 
 ```powershell
 py -3.11 -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.10.3"
+& .\.venv\Scripts\python.exe -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.11.0"
 & .\.venv\Scripts\python.exe -m playwright install chromium
 winget install -e --id oschwartz10612.Poppler
 ```
@@ -66,12 +68,12 @@ Open a new PowerShell after Poppler installation.
 
 ```bash
 python3.11 -m venv .venv
-./.venv/bin/python -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.10.3"
+./.venv/bin/python -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.11.0"
 ./.venv/bin/python -m playwright install chromium
 brew install poppler
 ```
 
-Start a new Codex task from that workspace after setup. Both skills resolve `.venv`
+Start a new Codex task from that workspace after setup. The translation skills resolve `.venv`
 relative to the active task workspace.
 
 ## Maintainer release flow

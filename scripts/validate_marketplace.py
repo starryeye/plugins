@@ -17,24 +17,24 @@ from typing import Any
 MARKETPLACE_PATH = Path(".agents/plugins/marketplace.json")
 EXPECTED_MARKETPLACE_NAME = "starryeye"
 EXPECTED_DISPLAY_NAME = "Starryeye Plugins"
-EXPECTED_PLUGIN_VERSION = "0.10.3"
+EXPECTED_PLUGIN_VERSION = "0.11.0"
 EXPECTED_SOURCE_URL = "https://github.com/starryeye/supertranslator.git"
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$", re.ASCII)
 EXPECTED_POLICY = {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
 EXPECTED_CATEGORY = "Productivity"
 EXPECTED_LISTING_METADATA = {
-    "description": "Translate one public static HTML page or one local or public text-selectable PDF into reviewed Korean output.",
+    "description": "Translate public static HTML into a Korean reading edition or local/public text-selectable PDFs into reviewed Korean PDFs, rerender approved translations, or independently compare originals and translations.",
     "author": {"name": "starryeye"},
     "repository": "https://github.com/starryeye/supertranslator",
     "interface": {
         "displayName": "supertranslator",
-        "shortDescription": "Translate public HTML or local/public PDFs into reviewed Korean output.",
-        "longDescription": "Provides separate workflows for a public static HTML page and a local or public text-selectable PDF while sharing contextual translation and master-review contracts.",
+        "shortDescription": "Translate, rerender, or independently review HTML/PDF.",
+        "longDescription": "Web translation delivers a visually checked Korean reading edition by default and retains a source-layout bundle. PDF translation, layout-only rendering of approved translations, and independent original-to-final review remain separate workflows.",
         "developerName": "starryeye",
         "category": "Productivity",
         "capabilities": ["Write"],
         "defaultPrompt": [
-            "Translate this public HTML page into an offline Korean bundle, or translate this local or public text-selectable PDF into a reviewed Korean PDF."
+            "Translate this public HTML page into a checked Korean reading edition, translate a text-selectable PDF, rerender an approved translation, or independently compare an original and translation."
         ],
     },
 }
