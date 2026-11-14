@@ -13,7 +13,7 @@ supported public static HTML page and one local, attached, or public text-select
 PDF. It supports Windows and macOS with Python 3.11 or newer.
 
 - Upstream: <https://github.com/starryeye/supertranslator>
-- Release: [`v0.11.0`](https://github.com/starryeye/supertranslator/releases/tag/v0.11.0)
+- Release: [`v0.12.0`](https://github.com/starryeye/supertranslator/releases/tag/v0.12.0)
 - Skills: `supertranslator-web` delivers a visually checked Korean reading edition by
   default; `supertranslator-pdf` translates PDFs. `supertranslator-render` and
   `supertranslator-review` are available separately.
@@ -57,7 +57,7 @@ artifacts remain readable.
 
 ```powershell
 py -3.11 -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.11.0"
+& .\.venv\Scripts\python.exe -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.12.0"
 & .\.venv\Scripts\python.exe -m playwright install chromium
 winget install -e --id oschwartz10612.Poppler
 ```
@@ -68,7 +68,7 @@ Open a new PowerShell after Poppler installation.
 
 ```bash
 python3.11 -m venv .venv
-./.venv/bin/python -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.11.0"
+./.venv/bin/python -m pip install "supertranslator[test] @ git+https://github.com/starryeye/supertranslator.git@v0.12.0"
 ./.venv/bin/python -m playwright install chromium
 brew install poppler
 ```
