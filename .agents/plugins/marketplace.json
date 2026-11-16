@@ -9,10 +9,10 @@
       "source": {
         "source": "url",
         "url": "https://github.com/starryeye/supertranslator.git",
-        "ref": "v0.12.0",
-        "sha": "4ea63fa76c388e6578ae68c9a5357bc353c0fb7c"
+        "ref": "v0.12.1",
+        "sha": "d5e479e3ce6f0f7cbd1d9cdefaba193a710877be"
       },
-      "version": "0.12.0",
+      "version": "0.12.1",
       "description": "Translate public static HTML into a Korean reading edition or local/public text-selectable PDFs into reviewed Korean PDFs, rerender approved translations, or independently compare originals and translations.",
       "author": {
         "name": "starryeye"
